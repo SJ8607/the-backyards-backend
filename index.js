@@ -9,7 +9,6 @@ app.use(cors());
 app.use(express.json());
 
 // --- 1. DATABASE CONNECTION ---
-// (Keep your actual connection string here!)
 const MONGO_URI = "mongodb+srv://admin:Shambhoo1542@cluster1.l3o4ipz.mongodb.net/?appName=Cluster1";
 
 mongoose.connect(MONGO_URI)
@@ -17,46 +16,33 @@ mongoose.connect(MONGO_URI)
   .catch((err) => console.log("❌ MongoDB Connection Error:", err));
 
 
-// --- 2. DEFINE THE ORDER BLUEPRINT (SCHEMA) ---
+// ==========================================
+// 2. ORDER SYSTEM (Existing Logic)
+// ==========================================
 const orderSchema = new mongoose.Schema({
   tableNumber: String,
-  items: Object, // Stores the cart data { "1": 2, "3": 1 }
+  items: Object,
   totalAmount: Number,
-  status: { type: String, default: 'Pending' }, // Pending, Paid, Completed
+  status: { type: String, default: 'Pending' },
   createdAt: { type: Date, default: Date.now }
 });
-
 const Order = mongoose.model('Order', orderSchema);
 
-
-// --- 3. CREATE THE API ENDPOINT ---
-// The Frontend will send data to this URL: http://localhost:5000/api/orders
+// API: Place Order
 app.post('/api/orders', async (req, res) => {
   try {
     const { tableNumber, items, totalAmount } = req.body;
-
-    // Create a new order in the database
-    const newOrder = new Order({
-      tableNumber,
-      items,
-      totalAmount
-    });
-
-    // Save it!
+    const newOrder = new Order({ tableNumber, items, totalAmount });
     await newOrder.save();
-
-    console.log("New Order Saved:", newOrder);
-    res.status(201).json({ message: "Order Placed Successfully!", orderId: newOrder._id });
+    res.status(201).json({ message: "Order Placed!", orderId: newOrder._id });
   } catch (error) {
     res.status(500).json({ message: "Error saving order", error });
   }
 });
 
-// --- 4. NEW: GET ALL ORDERS API ---
-// The Kitchen Dashboard will call this to see the list
+// API: Get Orders (Kitchen)
 app.get('/api/orders', async (req, res) => {
   try {
-    // Find all orders in the database
     const orders = await Order.find(); 
     res.json(orders);
   } catch (error) {
@@ -64,8 +50,7 @@ app.get('/api/orders', async (req, res) => {
   }
 });
 
-// --- 5. NEW: COMPLETE ORDER API (Delete) ---
-// The Kitchen sends an Order ID, and we delete it from the database
+// API: Delete Order
 app.delete('/api/orders/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -76,10 +61,55 @@ app.delete('/api/orders/:id', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+
+// ==========================================
+// 3. MENU SYSTEM (THIS WAS MISSING!) 🍔
+// ==========================================
+
+// A. Define Menu Item Schema
+const menuSchema = new mongoose.Schema({
+  name: String,
+  price: Number,
+  category: String,
+  description: String
+});
+const MenuItem = mongoose.model('MenuItem', menuSchema);
+
+// B. API: Get Menu (For Customer & Admin)
+app.get('/api/menu', async (req, res) => {
+  try {
+    const menu = await MenuItem.find();
+    res.json(menu);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching menu" });
+  }
 });
 
-console.log("Backend updated with Menu APIs");
+// C. API: Add Item (For Admin)
+app.post('/api/menu', async (req, res) => {
+  try {
+    const { name, price, category, description } = req.body;
+    const newItem = new MenuItem({ name, price, category, description });
+    await newItem.save();
+    res.status(201).json(newItem);
+  } catch (error) {
+    res.status(500).json({ message: "Error adding item" });
+  }
+});
 
-// Final menu update
+// D. API: Delete Item (For Admin)
+app.delete('/api/menu/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await MenuItem.findByIdAndDelete(id);
+    res.json({ message: "Item deleted" });
+  } catch (error) {
+    res.status(500).json({ message: "Error deleting item" });
+  }
+});
+
+// ==========================================
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
